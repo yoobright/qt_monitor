@@ -8,6 +8,41 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
+class capFrame(QAbstractScrollArea):
+    def __init__(self, parent=None):
+        super(capFrame, self).__init__(parent)
+
+        self.contentsWidget = QListWidget()
+        self.contentsWidget.setResizeMode(QListView.Adjust)
+        # self.contentsWidget.setSizeAdjustPolicy(QListWidget.AdjustToContents)
+        self.contentsWidget.setViewMode(QListView.IconMode)
+        self.contentsWidget.setIconSize(QSize(128, 128))  #Icon 大小
+        self.contentsWidget.setMovement(QListView.Static)  #Listview显示状态
+        self.contentsWidget.setMaximumWidth(800)  # 最大宽度
+        self.contentsWidget.setSpacing(12)  # 间距大小
+        self.createIcons()
+        horizontalLayout = QHBoxLayout()
+        horizontalLayout.addWidget(self.contentsWidget)
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(horizontalLayout)
+        self.setLayout(mainLayout)
+
+    def createIcons(self):
+        num = 10
+        for i in range(num):
+            item = QListWidgetItem(self.contentsWidget)
+            item.setSizeHint(QSize(160, 200))
+            # configButton.set
+            item.setIcon(QIcon('images/person.png'))
+            item.setText("person-{}".format(i))
+            item.setTextAlignment(Qt.AlignHCenter)
+            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
+
+    #QListWidget current 改变时触发
+    def changePage(self, current, previous):
+        print(self.contentsWidget.row(current))
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow: QMainWindow):
 
@@ -16,7 +51,7 @@ class Ui_MainWindow(object):
 
         self.bottomWidget = QAbstractScrollArea()
         self.leftWidget = QAbstractScrollArea()
-        self.rightWidget = QAbstractScrollArea()
+        self.rightWidget = capFrame()
 
         self.topSplitter = QSplitter(MainWindow)
         self.topSplitter.setOrientation(Qt.Vertical)
