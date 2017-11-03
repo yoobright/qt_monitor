@@ -8,68 +8,35 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 
-class capFrame(QAbstractScrollArea):
-    def __init__(self, parent=None):
-        super(capFrame, self).__init__(parent)
+def getPalette():
+    darkPalette = QPalette()
+    darkPalette.setColor(QPalette.Window,QColor(53,53,53))
+    darkPalette.setColor(QPalette.WindowText,Qt.white)
+    darkPalette.setColor(QPalette.Disabled,QPalette.WindowText,QColor(127,127,127))
+    darkPalette.setColor(QPalette.Base,QColor(42,42,42))
+    darkPalette.setColor(QPalette.AlternateBase,QColor(66,66,66))
+    darkPalette.setColor(QPalette.ToolTipBase,Qt.white)
+    darkPalette.setColor(QPalette.ToolTipText,Qt.white)
+    darkPalette.setColor(QPalette.Text,Qt.white)
+    darkPalette.setColor(QPalette.Disabled,QPalette.Text,QColor(127,127,127))
+    darkPalette.setColor(QPalette.Dark,QColor(35,35,35))
+    darkPalette.setColor(QPalette.Shadow,QColor(20,20,20))
+    darkPalette.setColor(QPalette.Button,QColor(53,53,53))
+    darkPalette.setColor(QPalette.ButtonText,Qt.white)
+    darkPalette.setColor(QPalette.Disabled,QPalette.ButtonText,QColor(127,127,127))
+    darkPalette.setColor(QPalette.BrightText,Qt.red)
+    darkPalette.setColor(QPalette.Link,QColor(42,130,218))
+    darkPalette.setColor(QPalette.Highlight,QColor(42,130,218))
+    darkPalette.setColor(QPalette.Disabled,QPalette.Highlight,QColor(80,80,80))
+    darkPalette.setColor(QPalette.HighlightedText,Qt.white)
+    darkPalette.setColor(QPalette.Disabled,QPalette.HighlightedText,QColor(127,127,127))
 
-        self.contentsWidget = QListWidget()
-        self.contentsWidget.setResizeMode(QListView.Adjust)
-        # self.contentsWidget.setSizeAdjustPolicy(QListWidget.AdjustToContents)
-        self.contentsWidget.setViewMode(QListView.IconMode)
-        self.contentsWidget.setIconSize(QSize(128, 128))  #Icon 大小
-        self.contentsWidget.setMovement(QListView.Static)  #Listview显示状态
-        self.contentsWidget.setMaximumWidth(800)  # 最大宽度
-        self.contentsWidget.setSpacing(12)  # 间距大小
-        self.createIcons()
-        horizontalLayout = QHBoxLayout()
-        horizontalLayout.addWidget(self.contentsWidget)
-        mainLayout = QVBoxLayout()
-        mainLayout.addLayout(horizontalLayout)
-        self.setLayout(mainLayout)
-
-    def createIcons(self):
-        num = 10
-        for i in range(num):
-            item = QListWidgetItem(self.contentsWidget)
-            item.setSizeHint(QSize(160, 200))
-            # configButton.set
-            item.setIcon(QIcon('images/person.png'))
-            item.setText("person-{}".format(i))
-            item.setTextAlignment(Qt.AlignHCenter)
-            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+    return darkPalette
 
 
-    #QListWidget current 改变时触发
-    def changePage(self, current, previous):
-        print(self.contentsWidget.row(current))
 
-class Ui_MainWindow(object):
-    def setupUi(self, MainWindow: QMainWindow):
 
-        # self.centralWidget = QWidget(MainWindow)
-        # self.button = QPushButton(MainWindow)
 
-        self.bottomWidget = QAbstractScrollArea()
-        self.leftWidget = QAbstractScrollArea()
-        self.rightWidget = capFrame()
 
-        self.topSplitter = QSplitter(MainWindow)
-        self.topSplitter.setOrientation(Qt.Vertical)
-
-        self.secSplitter = QSplitter()
-        self.secSplitter.setOrientation(Qt.Horizontal)
-        self.secSplitter.addWidget(self.leftWidget)
-        self.secSplitter.addWidget(self.rightWidget)
-        self.topSplitter.addWidget(self.secSplitter)
-        self.topSplitter.addWidget(self.bottomWidget)
-
-        self.secSplitter.setStretchFactor(0, 4)
-        self.secSplitter.setStretchFactor(1, 3)
-        self.topSplitter.setStretchFactor(0, 5)
-        self.topSplitter.setStretchFactor(1, 3)
-        MainWindow.setWindowTitle('test')
-        MainWindow.setMinimumSize(800, 600)
-        MainWindow.resize(960, 720)
-        MainWindow.setCentralWidget(self.topSplitter)
 
 
