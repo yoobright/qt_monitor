@@ -16,11 +16,10 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-import pyqt5_style
+import pyqt5_style_rc
 from utils.log import logger
 from utils.utils import np2qimage
 from widget import MainWindow
-from ui import getPalette
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -72,8 +71,7 @@ sys.excepthook = excepthook
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setPalette(getPalette())
-    qss_file = QFile(":darkstyle/darkstyle.qss")
+    qss_file = QFile(":qdarkstyle/style.qss")
     qss_file.open(QFile.ReadOnly | QFile.Text)
     stream = QTextStream(qss_file)
     app.setStyleSheet(stream.readAll())

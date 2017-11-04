@@ -12,6 +12,9 @@ from utils.log import logger
 from ui import *
 
 
+DEFAULT_PERSON_IMG = 'images/person.png'
+
+
 class ToolBar(QToolBar):
     def __init__(self, title):
         super(ToolBar, self).__init__(title)
@@ -106,6 +109,43 @@ class WindowMixin(object):
         return toolbar
 
 
+class ImageWidget(QWidget):
+    def __init__(self, pixmap=None, parent=None, min_size=QSize(128, 128),
+                 margin=5):
+        super(ImageWidget, self).__init__(parent)
+        self.default_pixmap = QPixmap(DEFAULT_PERSON_IMG)
+        self.pixmap = pixmap
+        self.imageLabel = QLabel()
+        self.imageLabel.setMinimumSize(min_size)
+        self.imageLabel.setMaximumSize(QSize(200, 200))
+        self.infoLabel = QLabel('test')
+        self.infoLabel.setMaximumWidth(200)
+        self.infoLabel.setMargin(2)
+        self.infoLabel.setAlignment(Qt.AlignCenter)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(margin, margin, margin, margin)
+        layout.addStretch()
+        layout.addWidget(self.imageLabel)
+        layout.addWidget(self.infoLabel)
+        layout.addStretch()
+        self.setLayout(layout)
+        self.setStyleSheet("border:1px solid")
+
+    def resizeEvent(self, event):
+        self.updateImage()
+        QWidget.resizeEvent(self, event)
+
+    def updateImage(self):
+        if self.pixmap:
+            show_map = self.pixmap.copy()
+        else:
+            show_map = self.default_pixmap.copy()
+        size = self.imageLabel.width() - 2
+        show_map = show_map.scaledToWidth(size,
+                                          Qt.SmoothTransformation)
+        self.imageLabel.setPixmap(show_map)
+
+
 class capFrame(QAbstractScrollArea):
     def __init__(self, parent=None):
         super(capFrame, self).__init__(parent)
@@ -141,6 +181,7 @@ class capFrame(QAbstractScrollArea):
     def changePage(self, current, previous):
         print(self.contentsWidget.row(current))
 
+
 class DetectTable(QTableWidget):
     def __init__(self, parent=None):
         super(DetectTable, self).__init__(parent)
@@ -152,11 +193,27 @@ class DetectTable(QTableWidget):
         self.setColumnCount(4)
         self.setRowCount(10)
         self.verticalHeader().setVisible(False)
+        self.setHorizontalHeaderLabels(['报警时间', '设备名称',
+                                        '相似度', '姓名'])
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.selectRow(0)
 
 
 class CompareWidget(QWidget):
     def __init__(self, parent=None):
         super(CompareWidget, self).__init__(parent)
+        layout = QHBoxLayout()
+        self.cap_image = ImageWidget(margin=2)
+        self.cap_image.infoLabel.setText('抓拍图象')
+        self.cmp_image = ImageWidget(margin=2)
+        self.similarityLabel = QLabel('0%')
+        self.similarityLabel.setMinimumWidth(50)
+        self.similarityLabel.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.cap_image)
+        layout.addWidget(self.similarityLabel)
+        layout.addWidget(self.cmp_image)
+        self.setLayout(layout)
 
     def setupUi(self):
         pass
@@ -217,7 +274,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.topSplitter.setStretchFactor(1, 3)
 
         self.setWindowTitle('test')
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(960, 720)
         self.resize(960, 720)
         self.setCentralWidget(self.topSplitter)
 
