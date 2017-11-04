@@ -6,7 +6,7 @@ from __future__ import print_function
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-from  PyQt5.QtWinExtras import QtWin
+from PyQt5.QtWinExtras import QtWin
 
 from utils.log import logger
 from ui import *
@@ -158,18 +158,19 @@ class capFrame(QAbstractScrollArea):
         self.contentsWidget.setMovement(QListView.Static)
         self.contentsWidget.setMaximumWidth(800)
         self.contentsWidget.setSpacing(12)
-        self.createIcons()
+        self.updateState()
         horizontalLayout = QHBoxLayout()
+        horizontalLayout.setContentsMargins(4, 4, 4, 4)
         horizontalLayout.addWidget(self.contentsWidget)
         mainLayout = QVBoxLayout()
         mainLayout.addLayout(horizontalLayout)
         self.setLayout(mainLayout)
 
-    def createIcons(self):
+    def updateState(self):
         num = 10
         for i in range(num):
             item = QListWidgetItem(self.contentsWidget)
-            item.setSizeHint(QSize(160, 200))
+            item.setSizeHint(QSize(160, 190))
             # configButton.set
             item.setIcon(QIcon('images/person.png'))
             item.setText("person-{}".format(i))
@@ -210,9 +211,11 @@ class CompareWidget(QWidget):
         self.similarityLabel = QLabel('0%')
         self.similarityLabel.setMinimumWidth(50)
         self.similarityLabel.setAlignment(Qt.AlignCenter)
+        layout.addStretch()
         layout.addWidget(self.cap_image)
         layout.addWidget(self.similarityLabel)
         layout.addWidget(self.cmp_image)
+        layout.addStretch()
         self.setLayout(layout)
 
     def setupUi(self):
