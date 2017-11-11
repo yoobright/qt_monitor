@@ -8,6 +8,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtWinExtras import QtWin
 
+import backend
 from utils.log import logger
 from ui import *
 
@@ -120,6 +121,7 @@ class ImageWidget(QWidget):
         self.imageLabel.setMaximumSize(QSize(200, 200))
         self.infoLabel = QLabel('test')
         self.infoLabel.setMaximumWidth(200)
+        self.infoLabel.setMaximumHeight(40)
         self.infoLabel.setMargin(2)
         self.infoLabel.setAlignment(Qt.AlignCenter)
         layout = QVBoxLayout()
@@ -129,11 +131,16 @@ class ImageWidget(QWidget):
         layout.addWidget(self.infoLabel)
         layout.addStretch()
         self.setLayout(layout)
-        self.setStyleSheet("border:1px solid")
 
-    def resizeEvent(self, event):
+        self.setStyleSheet("border:1px solid rgb(49, 54, 59)")
+
+    def paintEvent(self, event):
         self.updateImage()
-        QWidget.resizeEvent(self, event)
+        QWidget.paintEvent(self, event)
+
+    def resizeMax(self):
+        self.imageLabel.resize(200, 200)
+        self.infoLabel.resize(200, 30)
 
     def updateImage(self):
         if self.pixmap:
@@ -146,6 +153,54 @@ class ImageWidget(QWidget):
         self.imageLabel.setPixmap(show_map)
 
 
+class VideoWidget(QFrame):
+    def __init__(self, parent=None, rightClickCallback=None):
+        super(VideoWidget, self).__init__(parent)
+        self.rightClickCallback = rightClickCallback
+        self.default_pixmap = QPixmap('images/video.png')
+        self.pixmap = None
+        self.imageLabel = QLabel()
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.imageLabel)
+        self.imageLabel.setMinimumSize(QSize(200, 200))
+
+        self.imageLabel.setPixmap(self.default_pixmap)
+        self.setLayout(layout)
+
+    def resizeEvent(self, event):
+        self.updatePixmap()
+        super(VideoWidget, self).resizeEvent(event)
+
+    def updatePixmap(self):
+        if self.pixmap:
+            show_pixmap = self.pixmap.copy()
+        else:
+            show_pixmap = self.default_pixmap.copy()
+
+        show_pixmap = show_pixmap.scaledToWidth(
+            self.imageLabel.width(),
+            Qt.SmoothTransformation)
+        self.imageLabel.setPixmap(show_pixmap)
+
+
+class VideoMonitor(QScrollArea):
+    def __init__(self, parent=None):
+        super(VideoMonitor, self).__init__(parent)
+        layout = QGridLayout()
+        layout.setHorizontalSpacing(2)
+        layout.setVerticalSpacing(2)
+        self.video_1 = VideoWidget()
+        self.video_2 = VideoWidget()
+        layout.addWidget(self.video_1, 0, 0)
+        layout.addWidget(self.video_2, 1, 0)
+        self.setLayout(layout)
+
+
+    def setupUi(self):
+        pass
+
+
 class capFrame(QAbstractScrollArea):
     def __init__(self, parent=None):
         super(capFrame, self).__init__(parent)
@@ -154,11 +209,10 @@ class capFrame(QAbstractScrollArea):
         self.contentsWidget.setResizeMode(QListView.Adjust)
         # self.contentsWidget.setSizeAdjustPolicy(QListWidget.AdjustToContents)
         self.contentsWidget.setViewMode(QListView.IconMode)
-        self.contentsWidget.setIconSize(QSize(128, 128))
+        self.contentsWidget.setIconSize(QSize(120, 120))
         self.contentsWidget.setMovement(QListView.Static)
         self.contentsWidget.setMaximumWidth(800)
         self.contentsWidget.setSpacing(12)
-        self.updateState()
         horizontalLayout = QHBoxLayout()
         horizontalLayout.setContentsMargins(4, 4, 4, 4)
         horizontalLayout.addWidget(self.contentsWidget)
@@ -166,21 +220,18 @@ class capFrame(QAbstractScrollArea):
         mainLayout.addLayout(horizontalLayout)
         self.setLayout(mainLayout)
 
-    def updateState(self):
-        num = 10
-        for i in range(num):
+    def updateState(self, top=10):
+        data = backend.get_capture()
+        self.contentsWidget.clear()
+        for d in data[:top]:
             item = QListWidgetItem(self.contentsWidget)
-            item.setSizeHint(QSize(160, 190))
+            item.setSizeHint(QSize(150, 190))
             # configButton.set
-            item.setIcon(QIcon('images/person.png'))
-            item.setText("person-{}".format(i))
+            item.setIcon(QIcon(d.pixmap))
+            item.setText('{}\n{}'.format(d.id, d.date))
             item.setTextAlignment(Qt.AlignHCenter)
-            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
 
-
-    #QListWidget current 改变时触发
-    def changePage(self, current, previous):
-        print(self.contentsWidget.row(current))
 
 
 class DetectTable(QTableWidget):
@@ -201,22 +252,46 @@ class DetectTable(QTableWidget):
         self.selectRow(0)
 
 
-class CompareWidget(QWidget):
+class CompareWidget(QFrame):
     def __init__(self, parent=None):
         super(CompareWidget, self).__init__(parent)
         layout = QHBoxLayout()
+        self.centralWidget = QFrame()
         self.cap_image = ImageWidget(margin=2)
         self.cap_image.infoLabel.setText('抓拍图象')
         self.cmp_image = ImageWidget(margin=2)
         self.similarityLabel = QLabel('0%')
         self.similarityLabel.setMinimumWidth(50)
+        self.similarityLabel.setMinimumWidth(80)
         self.similarityLabel.setAlignment(Qt.AlignCenter)
-        layout.addStretch()
+        # layout.setStretchFactor(self.similarityLabel, 1)
+        # layout.setStretchFactor(self.cap_image, 2)
+        # layout.setStretchFactor(self.cmp_image, 2)
+        # layout.addStretch()
         layout.addWidget(self.cap_image)
         layout.addWidget(self.similarityLabel)
         layout.addWidget(self.cmp_image)
-        layout.addStretch()
-        self.setLayout(layout)
+        # layout.addStretch()
+        self.centralWidget.setLayout(layout)
+        # self.centralWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        top_layout = QGridLayout()
+        top_layout.addWidget(self.centralWidget)
+        self.setLayout(top_layout)
+
+        self.setStyleSheet(
+            '''
+            background-color: rgb(35, 38, 41)
+            '''
+        )
+
+    def paintEvent(self, event):
+        super(CompareWidget, self).paintEvent(event)
+
+        if self.width() > 500:
+            self.setContentsMargins(50, 50, 50, 50)
+        else:
+            self.setContentsMargins(20, 20, 20, 20)
+
 
     def setupUi(self):
         pass
@@ -246,11 +321,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.setAttribute(Qt.WA_TranslucentBackground)
         QtWin.enableBlurBehindWindow(self)
         QtWin.extendFrameIntoClientArea(self, -1, -1, -1, -1)
-        self.videoTimer = QTimer()
-        self.videoTimer.setInterval(40)
+        self.infoTimer = QTimer()
+        self.infoTimer.setInterval(1000)
         self.start_timer()
 
-        self.videoTimer.timeout.connect(self.updateCamera)
+        self.infoTimer.timeout.connect(self.updateInfo)
 
     def setupUi(self):
 
@@ -258,7 +333,7 @@ class MainWindow(QMainWindow, WindowMixin):
         # self.button = QPushButton(MainWindow)
 
         self.bottomWidget = BottomWidget()
-        self.leftWidget = QAbstractScrollArea()
+        self.leftWidget = VideoMonitor()
         self.rightWidget = capFrame()
 
         self.topSplitter = QSplitter(self)
@@ -276,19 +351,21 @@ class MainWindow(QMainWindow, WindowMixin):
         self.topSplitter.setStretchFactor(0, 5)
         self.topSplitter.setStretchFactor(1, 3)
 
-        self.setWindowTitle('test')
+        self.setWindowTitle('Monitor')
         self.setMinimumSize(960, 720)
         self.resize(960, 720)
+        self.topSplitter.setContentsMargins(15, 15, 15, 15)
         self.setCentralWidget(self.topSplitter)
 
     def start_timer(self):
         logger.debug('{}: start timer'.format(self.__class__))
-        self.videoTimer.start()
+        self.infoTimer.start()
 
     def stop_timer(self):
         logger.debug('{}: stop timer'.format(self.__class__))
-        self.videoTimer.stop()
+        self.infoTimer.stop()
 
-    def updateCamera(self):
-        pass
+    def updateInfo(self):
+        logger.debug('update main window info')
+        self.rightWidget.updateState()
 
