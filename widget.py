@@ -118,9 +118,9 @@ class ImageWidget(QWidget):
         self.pixmap = pixmap
         self.imageLabel = QLabel()
         self.imageLabel.setMinimumSize(min_size)
-        self.imageLabel.setMaximumSize(QSize(200, 200))
+        self.imageLabel.setMaximumSize(QSize(180, 180))
         self.infoLabel = QLabel('test')
-        self.infoLabel.setMaximumWidth(200)
+        self.infoLabel.setMaximumWidth(180)
         self.infoLabel.setMaximumHeight(40)
         self.infoLabel.setMargin(2)
         self.infoLabel.setAlignment(Qt.AlignCenter)
@@ -138,9 +138,9 @@ class ImageWidget(QWidget):
         self.updateImage()
         QWidget.paintEvent(self, event)
 
-    def resizeMax(self):
-        self.imageLabel.resize(200, 200)
-        self.infoLabel.resize(200, 30)
+    # def resizeMax(self):
+    #     self.imageLabel.resize(200, 200)
+    #     self.infoLabel.resize(200, 30)
 
     def updateImage(self):
         if self.pixmap:
@@ -202,6 +202,8 @@ class VideoMonitor(QScrollArea):
 
 
 class capFrame(QAbstractScrollArea):
+    show_top = 10
+
     def __init__(self, parent=None):
         super(capFrame, self).__init__(parent)
 
@@ -211,19 +213,18 @@ class capFrame(QAbstractScrollArea):
         self.contentsWidget.setViewMode(QListView.IconMode)
         self.contentsWidget.setIconSize(QSize(120, 120))
         self.contentsWidget.setMovement(QListView.Static)
-        self.contentsWidget.setMaximumWidth(800)
+        # self.contentsWidget.setMaximumWidth(800)
         self.contentsWidget.setSpacing(12)
-        horizontalLayout = QHBoxLayout()
-        horizontalLayout.setContentsMargins(4, 4, 4, 4)
-        horizontalLayout.addWidget(self.contentsWidget)
-        mainLayout = QVBoxLayout()
-        mainLayout.addLayout(horizontalLayout)
-        self.setLayout(mainLayout)
+        layout = QGridLayout()
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.addWidget(self.contentsWidget)
 
-    def updateState(self, top=10):
+        self.setLayout(layout)
+
+    def updateState(self, data=None):
         data = backend.get_capture()
         self.contentsWidget.clear()
-        for d in data[:top]:
+        for d in data[:self.show_top]:
             item = QListWidgetItem(self.contentsWidget)
             item.setSizeHint(QSize(150, 190))
             # configButton.set
@@ -233,8 +234,9 @@ class capFrame(QAbstractScrollArea):
             item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
 
 
-
 class DetectTable(QTableWidget):
+    show_top = 50
+
     def __init__(self, parent=None):
         super(DetectTable, self).__init__(parent)
         self.setupUi()
@@ -243,7 +245,7 @@ class DetectTable(QTableWidget):
         # self.setMinimumHeight(340)
         # self.setMaximumWidth(200)
         self.setColumnCount(4)
-        self.setRowCount(10)
+        self.setRowCount(self.show_top)
         self.verticalHeader().setVisible(False)
         self.setHorizontalHeaderLabels(['报警时间', '设备名称',
                                         '相似度', '姓名'])
@@ -251,26 +253,54 @@ class DetectTable(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.selectRow(0)
 
+    def updateState(self, data=None):
+        logger.debug('update DetectTable state')
+        selected_row = None
+        # print(self.selectedIndexes())
+        # if len(self.selectedIndexes()) > 0:
+        #     print(self.selectedIndexes()[0].row())
+        # print(selected_row)
+        # self.clear()
+        self.setHorizontalHeaderLabels(['报警时间', '设备名称',
+                                        '相似度', '姓名'])
+        for i, d in enumerate(data[:self.show_top]):
+            self.setItem(i, 0, QTableWidgetItem(d.date_time))
+            self.setItem(i, 1, QTableWidgetItem(d.cam_id))
+            self.setItem(i, 2, QTableWidgetItem(str(d.similarity)))
+            self.setItem(i, 3, QTableWidgetItem(d.cmp_id))
+
+        # if selected_row:
+        #     self.selectRow(selected_row)
+
+
 
 class CompareWidget(QFrame):
     def __init__(self, parent=None):
         super(CompareWidget, self).__init__(parent)
-        layout = QHBoxLayout()
+        self.setupUi()
+        self.centralWidget.hide()
+
+    def setupUi(self):
+        layout = QGridLayout()
         self.centralWidget = QFrame()
+        self.centralWidget.setMaximumWidth(480)
         self.cap_image = ImageWidget(margin=2)
         self.cap_image.infoLabel.setText('抓拍图象')
         self.cmp_image = ImageWidget(margin=2)
         self.similarityLabel = QLabel('0%')
         self.similarityLabel.setMinimumWidth(50)
-        self.similarityLabel.setMinimumWidth(80)
+        self.similarityLabel.setMinimumWidth(50)
         self.similarityLabel.setAlignment(Qt.AlignCenter)
         # layout.setStretchFactor(self.similarityLabel, 1)
         # layout.setStretchFactor(self.cap_image, 2)
         # layout.setStretchFactor(self.cmp_image, 2)
         # layout.addStretch()
-        layout.addWidget(self.cap_image)
-        layout.addWidget(self.similarityLabel)
-        layout.addWidget(self.cmp_image)
+        layout.addWidget(self.cap_image, 0, 0)
+        layout.addWidget(self.similarityLabel, 0, 1)
+        layout.addWidget(self.cmp_image, 0, 2)
+        layout.setColumnStretch(0, 2)
+        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(2, 2)
         # layout.addStretch()
         self.centralWidget.setLayout(layout)
         # self.centralWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -292,14 +322,22 @@ class CompareWidget(QFrame):
         else:
             self.setContentsMargins(20, 20, 20, 20)
 
-
-    def setupUi(self):
-        pass
+    def updateState(self, data):
+        logger.debug('update CompareWidget state')
+        self.cap_image.pixmap = data.cap_pixmap
+        self.cmp_image.pixmap = data.cmp_pixmap
+        self.cmp_image.infoLabel.setText(data.cmp_id)
+        self.similarityLabel.setText(str(data.similarity))
 
 
 class BottomWidget(QAbstractScrollArea):
     def __init__(self, parent=None):
         super(BottomWidget, self).__init__(parent)
+        self.setupUi()
+        self.data = None
+        self.detectTable.selectionModel().selectionChanged.connect(self.selectChangeSlot)
+
+    def setupUi(self):
         layout = QGridLayout()
         self.compareWidget = CompareWidget()
         self.detectTable = DetectTable()
@@ -307,11 +345,39 @@ class BottomWidget(QAbstractScrollArea):
         layout.addWidget(self.detectTable, 0, 1)
         layout.setColumnStretch(0, 2)
         layout.setColumnStretch(1, 3)
-
         self.setLayout(layout)
 
-    def setupUi(self):
-        pass
+    def selectChangeSlot(self, selected):
+        if self.data is None:
+            return
+        if len(selected.indexes()) > 0:
+            index = selected.indexes()[0].row()
+            print(index)
+            if index < len(self.data):
+                self.compareWidget.updateState(self.data[index])
+                self.compareWidget.centralWidget.show()
+            else:
+                self.compareWidget.centralWidget.hide()
+
+    def updateState(self, data=None):
+        logger.debug('update BottomWidget state')
+        if data is not None:
+            self.data = data
+        if self.data is None:
+            return
+        self.detectTable.updateState(self.data)
+        select_index = None
+        try:
+            select_index = self.detectTable.selectedIndexes()[0].row()
+        except IndexError as ex:
+            logger.debug('select index except: {}'.format(ex))
+            return
+        if select_index is not None and select_index < len(self.data):
+            self.compareWidget.updateState(self.data[select_index])
+            self.compareWidget.centralWidget.show()
+        else:
+            self.compareWidget.centralWidget.hide()
+        # self.detectTable.updateState()
 
 
 class MainWindow(QMainWindow, WindowMixin):
@@ -322,7 +388,7 @@ class MainWindow(QMainWindow, WindowMixin):
         QtWin.enableBlurBehindWindow(self)
         QtWin.extendFrameIntoClientArea(self, -1, -1, -1, -1)
         self.infoTimer = QTimer()
-        self.infoTimer.setInterval(1000)
+        self.infoTimer.setInterval(2000)
         self.start_timer()
 
         self.infoTimer.timeout.connect(self.updateInfo)
@@ -367,5 +433,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def updateInfo(self):
         logger.debug('update main window info')
-        self.rightWidget.updateState()
-
+        cap_data = backend.get_capture()
+        if cap_data:
+            self.rightWidget.updateState(cap_data)
+        alert_data = backend.get_alert()
+        if alert_data:
+            self.bottomWidget.updateState(alert_data)
