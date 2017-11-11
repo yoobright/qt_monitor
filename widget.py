@@ -110,7 +110,7 @@ class WindowMixin(object):
         return toolbar
 
 
-class ImageWidget(QWidget):
+class ImageWidget(QFrame):
     def __init__(self, pixmap=None, parent=None, min_size=QSize(128, 128),
                  margin=5):
         super(ImageWidget, self).__init__(parent)
@@ -121,6 +121,7 @@ class ImageWidget(QWidget):
         self.imageLabel.setMaximumSize(QSize(180, 180))
         self.infoLabel = QLabel('test')
         self.infoLabel.setMaximumWidth(180)
+        self.infoLabel.setMinimumHeight(30)
         self.infoLabel.setMaximumHeight(40)
         self.infoLabel.setMargin(2)
         self.infoLabel.setAlignment(Qt.AlignCenter)
@@ -129,20 +130,27 @@ class ImageWidget(QWidget):
         layout.addStretch()
         layout.addWidget(self.imageLabel)
         layout.addWidget(self.infoLabel)
+        self.setContentsMargins(margin, margin, margin, margin)
         layout.addStretch()
         self.setLayout(layout)
+        self.setMinimumHeight(150)
+        self.setMaximumHeight(220)
+        # self.updateImage()
 
-        self.setStyleSheet("border:1px solid rgb(49, 54, 59)")
+        self.setStyleSheet("border:1px solid #3daee9")
 
-    def paintEvent(self, event):
-        self.updateImage()
-        QWidget.paintEvent(self, event)
+    # def paintEvent(self, event):
+    #     # self.updateImage()
+    #     super(ImageWidget, self).paintEvent(event)
 
     # def resizeMax(self):
     #     self.imageLabel.resize(200, 200)
     #     self.infoLabel.resize(200, 30)
 
-    def updateImage(self):
+    def updateImage(self, pixmap=None):
+        if pixmap is not None:
+            self.pixmap = pixmap
+
         if self.pixmap:
             show_map = self.pixmap.copy()
         else:
@@ -202,7 +210,8 @@ class VideoMonitor(QScrollArea):
 
 
 class capFrame(QAbstractScrollArea):
-    show_top = 10
+    show_top = 50
+    title = '  人脸抓拍'
 
     def __init__(self, parent=None):
         super(capFrame, self).__init__(parent)
@@ -217,9 +226,21 @@ class capFrame(QAbstractScrollArea):
         self.contentsWidget.setSpacing(12)
         layout = QGridLayout()
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.addWidget(self.contentsWidget)
+        layout.addWidget(self.genTitle(), 0, 0)
+        layout.addWidget(self.contentsWidget, 1, 0)
 
         self.setLayout(layout)
+
+    def genTitle(self):
+        label = QLabel(self.title)
+        label.setMinimumHeight(25)
+        label.setStyleSheet(
+            '''
+            font: bold;
+            background-color:  #3daee9
+            '''
+        )
+        return label
 
     def updateState(self, data=None):
         data = backend.get_capture()
@@ -232,6 +253,38 @@ class capFrame(QAbstractScrollArea):
             item.setText('{}\n{}'.format(d.id, d.date))
             item.setTextAlignment(Qt.AlignHCenter)
             item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
+
+
+class SimilarityBar(QProgressBar):
+    _DEFAULT_STYLE = '''
+    * {font-size: 10pt;}
+    QProgressBar {
+    text-align: left;
+    height: 20px;  
+    }      
+    QProgressBar::chunk {
+    background-color: rgb(213, 78, 83, 180);
+    width: 1px;
+    }           
+    '''
+    _LOW_STYLE = '''
+    * {font-size: 10pt;}
+    QProgressBar {
+    text-align: left;
+    height: 20px;  
+    }      
+    QProgressBar::chunk {
+    background-color: rgb(231, 197, 71, 180);
+    width: 1px;
+    }           
+    '''
+
+    def __init__(self, parent=None, max_width=60):
+        QProgressBar.__init__(self, parent)
+        self.setRange(0, 100)
+        self.setStyleSheet(self._DEFAULT_STYLE)
+        self.setMaximumWidth(max_width)
+        self.setMaximumHeight(22)
 
 
 class DetectTable(QTableWidget):
@@ -247,47 +300,70 @@ class DetectTable(QTableWidget):
         self.setColumnCount(4)
         self.setRowCount(self.show_top)
         self.verticalHeader().setVisible(False)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setHorizontalHeaderLabels(['报警时间', '设备名称',
                                         '相似度', '姓名'])
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.selectRow(0)
 
+    def genSimilarityBar(self, value):
+        assert 0 <= value <= 100, 'value must between 0 and 100'
+        widget = QWidget()
+        layout = QHBoxLayout()
+        bar = SimilarityBar()
+        bar.setValue(value)
+        if value < 75:
+            bar.setStyleSheet(bar._LOW_STYLE)
+        layout.addWidget(bar)
+        layout.addStretch()
+        layout.setContentsMargins(4, 0, 0, 0)
+        widget.setLayout(layout)
+        widget.setStyleSheet(
+            '''
+            font: bold;
+            background: rgb(0, 0, 0, 0)
+            '''
+        )
+        return widget
+
     def updateState(self, data=None):
         logger.debug('update DetectTable state')
         selected_row = None
-        # print(self.selectedIndexes())
-        # if len(self.selectedIndexes()) > 0:
-        #     print(self.selectedIndexes()[0].row())
-        # print(selected_row)
-        # self.clear()
         self.setHorizontalHeaderLabels(['报警时间', '设备名称',
                                         '相似度', '姓名'])
         for i, d in enumerate(data[:self.show_top]):
             self.setItem(i, 0, QTableWidgetItem(d.date_time))
             self.setItem(i, 1, QTableWidgetItem(d.cam_id))
-            self.setItem(i, 2, QTableWidgetItem(str(d.similarity)))
+            self.setCellWidget(i, 2, self.genSimilarityBar(d.similarity))
             self.setItem(i, 3, QTableWidgetItem(d.cmp_id))
-
-        # if selected_row:
-        #     self.selectRow(selected_row)
-
 
 
 class CompareWidget(QFrame):
+    _SML_DEFAULT_STYLE = '''
+    font: bold;
+    color: #e8878b;
+    '''
+    _SML_LOW_STYLE = '''
+    font: bold;
+    color: #f2de94;
+    '''
+
     def __init__(self, parent=None):
         super(CompareWidget, self).__init__(parent)
         self.setupUi()
         self.centralWidget.hide()
 
     def setupUi(self):
+        self.setObjectName('top')
         layout = QGridLayout()
         self.centralWidget = QFrame()
         self.centralWidget.setMaximumWidth(480)
         self.cap_image = ImageWidget(margin=2)
         self.cap_image.infoLabel.setText('抓拍图象')
         self.cmp_image = ImageWidget(margin=2)
-        self.similarityLabel = QLabel('0%')
+        self.similarityLabel = QLabel()
+        self.updateSimilarity(0)
         self.similarityLabel.setMinimumWidth(50)
         self.similarityLabel.setMinimumWidth(50)
         self.similarityLabel.setAlignment(Qt.AlignCenter)
@@ -310,39 +386,75 @@ class CompareWidget(QFrame):
 
         self.setStyleSheet(
             '''
-            background-color: rgb(35, 38, 41)
+            #top {
+            background-color: rgb(35, 38, 41);
+            border: 2px solid rgb(118, 121, 124);
+            }
+            QLabel[tag='true'] {
+            font: 25px;
+            }
             '''
         )
 
-    def paintEvent(self, event):
-        super(CompareWidget, self).paintEvent(event)
-
-        if self.width() > 500:
-            self.setContentsMargins(50, 50, 50, 50)
+    def updateSimilarity(self, value):
+        self.similarityLabel.setText('{0:.0f}%'.format(value))
+        if value < 75:
+            self.similarityLabel.setStyleSheet(self._SML_LOW_STYLE)
         else:
-            self.setContentsMargins(20, 20, 20, 20)
+            self.similarityLabel.setStyleSheet(self._SML_DEFAULT_STYLE)
+
+
+    def resizeEvent(self, event):
+        if self.width() > 500:
+            self.setContentsMargins(30, 30, 30, 30)
+            self.similarityLabel.setProperty('tag', True)
+            self.similarityLabel.setStyle(self.similarityLabel.style())
+        else:
+            self.setContentsMargins(10, 10, 10, 10)
+            self.similarityLabel.setProperty('tag', False)
+            self.similarityLabel.setStyle(self.similarityLabel.style())
+
+        super(CompareWidget, self).resizeEvent(event)
+        self.cap_image.updateImage()
+        self.cmp_image.updateImage()
+
 
     def updateState(self, data):
         logger.debug('update CompareWidget state')
-        self.cap_image.pixmap = data.cap_pixmap
-        self.cmp_image.pixmap = data.cmp_pixmap
+        self.cap_image.updateImage(data.cap_pixmap)
+        self.cmp_image.updateImage(data.cmp_pixmap)
         self.cmp_image.infoLabel.setText(data.cmp_id)
-        self.similarityLabel.setText(str(data.similarity))
+        self.updateSimilarity(data.similarity)
 
 
 class BottomWidget(QAbstractScrollArea):
+    title = '  黑名单报警'
+
     def __init__(self, parent=None):
         super(BottomWidget, self).__init__(parent)
         self.setupUi()
         self.data = None
-        self.detectTable.selectionModel().selectionChanged.connect(self.selectChangeSlot)
+        self.detectTable.selectionModel().selectionChanged.connect(
+            self.selectChangeSlot)
+
+    def genTitle(self):
+        label = QLabel(self.title)
+        label.setMinimumHeight(25)
+        label.setStyleSheet(
+            '''
+            font: bold;
+            background-color:  #3daee9
+            '''
+        )
+        return label
 
     def setupUi(self):
         layout = QGridLayout()
         self.compareWidget = CompareWidget()
         self.detectTable = DetectTable()
-        layout.addWidget(self.compareWidget, 0, 0)
-        layout.addWidget(self.detectTable, 0, 1)
+        layout.addWidget(self.genTitle(), 0, 0, 1, 2)
+        layout.addWidget(self.compareWidget, 1, 0)
+        layout.addWidget(self.detectTable, 1, 1)
         layout.setColumnStretch(0, 2)
         layout.setColumnStretch(1, 3)
         self.setLayout(layout)
@@ -352,7 +464,6 @@ class BottomWidget(QAbstractScrollArea):
             return
         if len(selected.indexes()) > 0:
             index = selected.indexes()[0].row()
-            print(index)
             if index < len(self.data):
                 self.compareWidget.updateState(self.data[index])
                 self.compareWidget.centralWidget.show()
@@ -373,8 +484,8 @@ class BottomWidget(QAbstractScrollArea):
             logger.debug('select index except: {}'.format(ex))
             return
         if select_index is not None and select_index < len(self.data):
-            self.compareWidget.updateState(self.data[select_index])
             self.compareWidget.centralWidget.show()
+            self.compareWidget.updateState(self.data[select_index])
         else:
             self.compareWidget.centralWidget.hide()
         # self.detectTable.updateState()
