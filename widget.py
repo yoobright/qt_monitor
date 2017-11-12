@@ -3,6 +3,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import queue
+import threading
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -164,7 +167,20 @@ class ImageWidget(QFrame):
 class VideoWidget(QFrame):
     def __init__(self, parent=None, rightClickCallback=None):
         super(VideoWidget, self).__init__(parent)
+        self.setupUi()
         self.rightClickCallback = rightClickCallback
+        self.capture = backend.VideoCapture()
+        # self.thread = backend.VideoThread(self)
+        self.frame = queue.Queue()
+        self.videoTimer = QTimer()
+        self.videoTimer.setInterval(30)
+
+        # self.thread.cap_frame.connect(self.setFrame)
+        self.videoTimer.timeout.connect(self.timerUpdate)
+        self.start_timer()
+        # self.thread.start()
+
+    def setupUi(self):
         self.default_pixmap = QPixmap('images/video.png')
         self.pixmap = None
         self.imageLabel = QLabel()
@@ -172,15 +188,34 @@ class VideoWidget(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.imageLabel)
         self.imageLabel.setMinimumSize(QSize(200, 200))
-
         self.imageLabel.setPixmap(self.default_pixmap)
         self.setLayout(layout)
+        self.setStyleSheet(
+            '''
+            QLabel {
+            border: 2px solid rgb(0, 0, 0, 0);
+            }
+                    
+            QLabel:hover {
+            border: 2px solid rgb(96, 95, 95, 255);
+            }
+            '''
+        )
 
     def resizeEvent(self, event):
         self.updatePixmap()
         super(VideoWidget, self).resizeEvent(event)
 
+    def start_timer(self):
+        self.videoTimer.start()
+
+    def stop_timer(self):
+        self.videoTimer.stop()
+
     def updatePixmap(self):
+        if not self.frame.empty():
+            self.pixmap = QPixmap(self.frame.get())
+
         if self.pixmap:
             show_pixmap = self.pixmap.copy()
         else:
@@ -191,27 +226,60 @@ class VideoWidget(QFrame):
             Qt.SmoothTransformation)
         self.imageLabel.setPixmap(show_pixmap)
 
+    def timerUpdate(self):
+        im = self.capture.get_frame()
+        if not im.isNull():
+            self.pixmap = QPixmap(im)
+        self.updatePixmap()
+    # def setFrame(self, image):
+    #     # print('set')
+    #     if self.frame.empty():
+    #         self.frame.put(image)
+    #         self.update()
 
-class VideoMonitor(QScrollArea):
+    # def terminate(self, event):
+    #     self.thread.terminate()
+
+
+class VideoMonitor(QAbstractScrollArea):
+    title = ' 实时监控'
+
     def __init__(self, parent=None):
         super(VideoMonitor, self).__init__(parent)
-        layout = QGridLayout()
-        layout.setHorizontalSpacing(2)
-        layout.setVerticalSpacing(2)
-        self.video_1 = VideoWidget()
-        self.video_2 = VideoWidget()
-        layout.addWidget(self.video_1, 0, 0)
-        layout.addWidget(self.video_2, 1, 0)
-        self.setLayout(layout)
+        self.setupUi()
+
+    def genTitle(self):
+        label = QLabel(self.title)
+        label.setMinimumHeight(25)
+        label.setMaximumHeight(25)
+        label.setStyleSheet(
+            '''
+            font: bold;
+            background-color:  #3daee9
+            '''
+        )
+        return label
 
 
     def setupUi(self):
-        pass
+        layout = QGridLayout()
+        # layout.setHorizontalSpacing(1)
+        # layout.setVerticalSpacing(1)
+        self.video_1 = VideoWidget(self)
+        self.video_2 = VideoWidget(self)
+        layout.addWidget(self.genTitle(), 0, 0)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+        layout.addWidget(self.video_1, 1, 0)
+        layout.addWidget(self.video_2, 2, 0)
+        self.setLayout(layout)
+        self.setMinimumWidth(350)
+        # self.setContentsMargins(2, 2, 2, 2)
 
 
 class capFrame(QAbstractScrollArea):
     show_top = 50
-    title = '  人脸抓拍'
+    title = ' 人脸抓拍'
 
     def __init__(self, parent=None):
         super(capFrame, self).__init__(parent)
@@ -234,6 +302,7 @@ class capFrame(QAbstractScrollArea):
     def genTitle(self):
         label = QLabel(self.title)
         label.setMinimumHeight(25)
+        label.setMaximumHeight(25)
         label.setStyleSheet(
             '''
             font: bold;
@@ -250,7 +319,7 @@ class capFrame(QAbstractScrollArea):
             item.setSizeHint(QSize(150, 190))
             # configButton.set
             item.setIcon(QIcon(d.pixmap))
-            item.setText('{}\n{}'.format(d.id, d.date))
+            item.setText('{}'.format(d.date))
             item.setTextAlignment(Qt.AlignHCenter)
             item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
 
@@ -342,11 +411,11 @@ class DetectTable(QTableWidget):
 class CompareWidget(QFrame):
     _SML_DEFAULT_STYLE = '''
     font: bold;
-    color: #e8878b;
+    color: rgb(213, 78, 83);
     '''
     _SML_LOW_STYLE = '''
     font: bold;
-    color: #f2de94;
+    color: rgb(231, 197, 71);
     '''
 
     def __init__(self, parent=None):
@@ -391,7 +460,7 @@ class CompareWidget(QFrame):
             border: 2px solid rgb(118, 121, 124);
             }
             QLabel[tag='true'] {
-            font: 25px;
+            font: 22px;
             }
             '''
         )
@@ -428,7 +497,7 @@ class CompareWidget(QFrame):
 
 
 class BottomWidget(QAbstractScrollArea):
-    title = '  黑名单报警'
+    title = ' 黑名单报警'
 
     def __init__(self, parent=None):
         super(BottomWidget, self).__init__(parent)
@@ -440,6 +509,7 @@ class BottomWidget(QAbstractScrollArea):
     def genTitle(self):
         label = QLabel(self.title)
         label.setMinimumHeight(25)
+        label.setMaximumHeight(25)
         label.setStyleSheet(
             '''
             font: bold;
@@ -457,6 +527,7 @@ class BottomWidget(QAbstractScrollArea):
         layout.addWidget(self.detectTable, 1, 1)
         layout.setColumnStretch(0, 2)
         layout.setColumnStretch(1, 3)
+        layout.setContentsMargins(4, 4, 4, 4)
         self.setLayout(layout)
 
     def selectChangeSlot(self, selected):
@@ -509,9 +580,9 @@ class MainWindow(QMainWindow, WindowMixin):
         # self.centralWidget = QWidget(MainWindow)
         # self.button = QPushButton(MainWindow)
 
-        self.bottomWidget = BottomWidget()
-        self.leftWidget = VideoMonitor()
-        self.rightWidget = capFrame()
+        self.bottomWidget = BottomWidget(self)
+        self.leftWidget = VideoMonitor(self)
+        self.rightWidget = capFrame(self)
 
         self.topSplitter = QSplitter(self)
         self.topSplitter.setOrientation(Qt.Vertical)
@@ -520,6 +591,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.secSplitter.setOrientation(Qt.Horizontal)
         self.secSplitter.addWidget(self.leftWidget)
         self.secSplitter.addWidget(self.rightWidget)
+        # self.secSplitter.set
         self.topSplitter.addWidget(self.secSplitter)
         self.topSplitter.addWidget(self.bottomWidget)
 
