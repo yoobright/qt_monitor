@@ -158,8 +158,8 @@ class ImageWidget(QFrame):
             show_map = self.pixmap.copy()
         else:
             show_map = self.default_pixmap.copy()
-        size = self.imageLabel.width() - 2
-        show_map = show_map.scaledToWidth(size,
+        width = self.infoLabel.width() - 2
+        show_map = show_map.scaledToWidth(width,
                                           Qt.SmoothTransformation)
         self.imageLabel.setPixmap(show_map)
 
@@ -220,10 +220,10 @@ class VideoWidget(QFrame):
             show_pixmap = self.pixmap.copy()
         else:
             show_pixmap = self.default_pixmap.copy()
-
-        show_pixmap = show_pixmap.scaledToWidth(
-            self.imageLabel.width(),
-            Qt.SmoothTransformation)
+        width = self.width() - 2
+        height = self.height() - 2
+        show_pixmap = show_pixmap.scaled(width, height,
+                                         Qt.IgnoreAspectRatio)
         self.imageLabel.setPixmap(show_pixmap)
 
     def timerUpdate(self):
