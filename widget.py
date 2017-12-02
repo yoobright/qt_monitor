@@ -169,16 +169,17 @@ class VideoWidget(QFrame):
         super(VideoWidget, self).__init__(parent)
         self.setupUi()
         self.rightClickCallback = rightClickCallback
-        self.capture = backend.VideoCapture()
-        # self.thread = backend.VideoThread(self)
-        self.frame = queue.Queue()
+        # self.capture = backend.VideoCapture()
+        self.thread = backend.VideoThread(self, self.setFrame)
+        self.frame = queue.Queue(maxsize=100)
         self.videoTimer = QTimer()
-        self.videoTimer.setInterval(30)
+        self.videoTimer.setInterval(100)
 
         # self.thread.cap_frame.connect(self.setFrame)
-        self.videoTimer.timeout.connect(self.timerUpdate)
+        self.videoTimer.timeout.connect(self.updatePixmap)
+        # self.destroyed.connect(self.thread.terminate)
         self.start_timer()
-        # self.thread.start()
+        self.thread.start()
 
     def setupUi(self):
         self.default_pixmap = QPixmap('images/video.png')
@@ -203,7 +204,7 @@ class VideoWidget(QFrame):
         )
 
     def resizeEvent(self, event):
-        self.updatePixmap()
+        # self.updatePixmap()
         super(VideoWidget, self).resizeEvent(event)
 
     def start_timer(self):
@@ -213,32 +214,43 @@ class VideoWidget(QFrame):
         self.videoTimer.stop()
 
     def updatePixmap(self):
-        if not self.frame.empty():
-            self.pixmap = QPixmap(self.frame.get())
-
-        if self.pixmap:
-            show_pixmap = self.pixmap.copy()
-        else:
-            show_pixmap = self.default_pixmap.copy()
-        width = self.width() - 2
-        height = self.height() - 2
-        show_pixmap = show_pixmap.scaled(width, height,
-                                         Qt.IgnoreAspectRatio)
-        self.imageLabel.setPixmap(show_pixmap)
+        pass
+        # if not self.frame.empty():
+        #     show_pixmap = QPixmap(self.frame.get())
+        # if self.pixmap:
+        #     show_pixmap = self.pixmap.copy()
+        # else:
+        #     show_pixmap = self.default_pixmap.copy()
+        #     print('empty')
+        # width = self.width() - 2
+        # height = self.height() - 2
+        # show_pixmap = show_pixmap.scaled(width, height,
+        #                                  Qt.IgnoreAspectRatio)
+        # self.imageLabel.setPixmap(show_pixmap)
 
     def timerUpdate(self):
         im = self.capture.get_frame()
         if not im.isNull():
             self.pixmap = QPixmap(im)
         self.updatePixmap()
-    # def setFrame(self, image):
-    #     # print('set')
-    #     if self.frame.empty():
-    #         self.frame.put(image)
-    #         self.update()
 
-    # def terminate(self, event):
-    #     self.thread.terminate()
+    def setFrame(self, image):
+        show_pixmap = QPixmap(image)
+        width = self.width() - 2
+        height = self.height() - 2
+        show_pixmap = show_pixmap.scaled(width, height,
+                                         Qt.IgnoreAspectRatio)
+        self.imageLabel.setPixmap(show_pixmap)
+        # print('set')
+        # if not self.frame.full():
+        #     self.frame.put(image)
+
+            # self.update()
+
+    def closeEvent(self, event):
+        print('close')
+        self.thread.terminate()
+        QFrame.closeEvent(self, event)
 
 
 class VideoMonitor(QAbstractScrollArea):
@@ -275,7 +287,11 @@ class VideoMonitor(QAbstractScrollArea):
         self.setLayout(layout)
         self.setMinimumWidth(350)
         # self.setContentsMargins(2, 2, 2, 2)
+        self.destroyed.connect(self.test)
 
+    @staticmethod
+    def test(self):
+        print('destroy')
 
 class capFrame(QAbstractScrollArea):
     show_top = 50
@@ -622,3 +638,13 @@ class MainWindow(QMainWindow, WindowMixin):
         alert_data = backend.get_alert()
         if alert_data:
             self.bottomWidget.updateState(alert_data)
+
+    def closeEvent(self, event):
+        if self.leftWidget.video_1.thread.isRunning():
+            self.leftWidget.video_1.thread.quit()
+            self.leftWidget.video_1.thread.wait()
+        if self.leftWidget.video_2.thread.isRunning():
+            self.leftWidget.video_2.thread.quit()
+            self.leftWidget.video_2.thread.wait()
+        print('close')
+        QMainWindow.closeEvent(self, event)

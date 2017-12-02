@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import *
 
 from utils.utils import *
 
+
 def load_img(image_path):
     pixmap = QPixmap(image_path)
     if pixmap.isNull():
@@ -85,26 +86,38 @@ class VideoCapture(object):
         im = np2qimage(frame, mode='bgr')
         return im
 
-# class VideoThread(QThread):
-#     cap_frame = pyqtSignal(QImage)
-#
-#     def __init__(self, parent, id=0):
-#         super(VideoThread, self).__init__(parent)
-#         self.interval = 40
-#         self.cap = cv2.VideoCapture(id)
-#         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-#         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-#
-#     def run(self):
-#         # def get_frame():
-#         #     b, frame = self.cap.read()
-#         #     im = np2qimage(frame, mode='bgr')
-#         #     return im
-#
-#         while True:
-#             b, frame = self.cap.read()
-#             im = np2qimage(frame, mode='bgr')
-#             self.cap_frame.emit(im)
-#
-#     def setInterval(self, value):
-#         self.interval = value
+class VideoThread(QThread):
+    start_timer = pyqtSignal()
+    pixmap_changed = pyqtSignal(QPixmap)
+
+    def __init__(self, parent, callback, id=0):
+        super(VideoThread, self).__init__(parent)
+        self.interval = 20
+        self.callback = callback
+        self.cap = cv2.VideoCapture(id)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+        # self.thread.cap_frame.connect(self.setFrame)
+        self.timer = QTimer()
+        self.start_timer.connect(self.slot_timer_start)
+        self.timer.timeout.connect(self.get_frame)
+
+    @pyqtSlot()
+    def get_frame(self):
+        b, frame = self.cap.read()
+        im = np2qimage(frame, mode='bgr')
+        self.callback(im)
+
+    @pyqtSlot()
+    def slot_timer_start(self):
+        print('slot')
+        self.timer.start(self.interval)
+
+    def run(self):
+        print('run')
+        self.start_timer.emit()
+        self.exec()
+
+    def setInterval(self, value):
+        self.interval = value
+
