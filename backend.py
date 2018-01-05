@@ -3,8 +3,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
 import datetime
+from time import time
 
 import cv2
 
@@ -86,6 +86,7 @@ class VideoCapture(object):
         im = np2qimage(frame, mode='bgr')
         return im
 
+
 class VideoThread(QThread):
     start_timer = pyqtSignal()
     pixmap_changed = pyqtSignal(QPixmap)
@@ -94,19 +95,27 @@ class VideoThread(QThread):
         super(VideoThread, self).__init__(parent)
         self.interval = 20
         self.callback = callback
-        self.cap = cv2.VideoCapture(id)
+        self.cap = cv2.VideoCapture('rtsp://admin:pdl111111@10.0.119.101//Streaming/Channels/1')
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         # self.thread.cap_frame.connect(self.setFrame)
         self.timer = QTimer()
+        self.count = 0
         self.start_timer.connect(self.slot_timer_start)
         self.timer.timeout.connect(self.get_frame)
+        self.start_tag = time()
 
     @pyqtSlot()
     def get_frame(self):
+        self.count += 1
         b, frame = self.cap.read()
-        im = np2qimage(frame, mode='bgr')
-        self.callback(im)
+        if self.count == 10:
+            self.count = 0
+            print(10 / (time() - self.start_tag))
+            self.start_tag = time()
+        if frame is not None:
+            im = np2qimage(frame, mode='bgr')
+            self.callback(QPixmap(im))
 
     @pyqtSlot()
     def slot_timer_start(self):
@@ -116,7 +125,7 @@ class VideoThread(QThread):
     def run(self):
         print('run')
         self.start_timer.emit()
-        self.exec()
+        self.exec_()
 
     def setInterval(self, value):
         self.interval = value

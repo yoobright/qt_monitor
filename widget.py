@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import queue
 import threading
+import copy
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -170,10 +171,10 @@ class VideoWidget(QFrame):
         self.setupUi()
         self.rightClickCallback = rightClickCallback
         # self.capture = backend.VideoCapture()
-        self.thread = backend.VideoThread(self, self.setFrame)
+        self.thread = backend.VideoThread(self, self.setPixmap)
         self.frame = queue.Queue(maxsize=100)
         self.videoTimer = QTimer()
-        self.videoTimer.setInterval(100)
+        self.videoTimer.setInterval(20)
 
         # self.thread.cap_frame.connect(self.setFrame)
         self.videoTimer.timeout.connect(self.updatePixmap)
@@ -213,20 +214,21 @@ class VideoWidget(QFrame):
     def stop_timer(self):
         self.videoTimer.stop()
 
+    def setPixmap(self, qpixmap):
+        if qpixmap is not None:
+            self.pixmap = qpixmap.copy()
+
     def updatePixmap(self):
-        pass
-        # if not self.frame.empty():
-        #     show_pixmap = QPixmap(self.frame.get())
-        # if self.pixmap:
-        #     show_pixmap = self.pixmap.copy()
-        # else:
-        #     show_pixmap = self.default_pixmap.copy()
-        #     print('empty')
-        # width = self.width() - 2
-        # height = self.height() - 2
-        # show_pixmap = show_pixmap.scaled(width, height,
-        #                                  Qt.IgnoreAspectRatio)
-        # self.imageLabel.setPixmap(show_pixmap)
+        if self.pixmap:
+            show_pixmap = self.pixmap.copy()
+        else:
+            show_pixmap = self.default_pixmap.copy()
+            print('empty')
+        width = self.width() - 2
+        height = self.height() - 2
+        show_pixmap = show_pixmap.scaled(width, height,
+                                         Qt.IgnoreAspectRatio)
+        self.imageLabel.setPixmap(show_pixmap)
 
     def timerUpdate(self):
         im = self.capture.get_frame()
@@ -234,13 +236,15 @@ class VideoWidget(QFrame):
             self.pixmap = QPixmap(im)
         self.updatePixmap()
 
-    def setFrame(self, image):
-        show_pixmap = QPixmap(image)
-        width = self.width() - 2
-        height = self.height() - 2
-        show_pixmap = show_pixmap.scaled(width, height,
-                                         Qt.IgnoreAspectRatio)
-        self.imageLabel.setPixmap(show_pixmap)
+    # def setFrame(self, image):
+    #     image = image.copy()
+    #     show_pixmap = QPixmap(image)
+    #     width = self.width() - 2
+    #     height = self.height() - 2
+    #     show_pixmap = show_pixmap.scaled(width, height,
+    #                                      Qt.IgnoreAspectRatio)
+    #     self.imageLabel.setPixmap(show_pixmap)
+        # self.update()
         # print('set')
         # if not self.frame.full():
         #     self.frame.put(image)
@@ -292,6 +296,7 @@ class VideoMonitor(QAbstractScrollArea):
     @staticmethod
     def test(self):
         print('destroy')
+
 
 class capFrame(QAbstractScrollArea):
     show_top = 50
